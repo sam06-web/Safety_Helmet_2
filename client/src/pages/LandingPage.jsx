@@ -27,7 +27,7 @@ function LandingPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-lg shadow-sky-500/25">
               <FiShield size={20} />
             </div>
-            <span className="text-xl font-bold text-white">SafeGuard</span>
+            <span className="text-xl font-bold text-white">HELMSECURE</span>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/login" className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:text-white">
@@ -63,15 +63,7 @@ function LandingPage() {
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="mx-auto mt-20 grid max-w-3xl grid-cols-3 gap-6">
-            {[{ val: '500m', label: 'Wireless Range' }, { val: '<2s', label: 'Alert Latency' }, { val: '24/7', label: 'Monitoring' }].map((s, i) => (
-              <div key={i} className="rounded-2xl border border-slate-800/60 bg-slate-900/40 p-5 text-center backdrop-blur-sm">
-                <p className="text-3xl font-bold text-white">{s.val}</p>
-                <p className="mt-1 text-sm text-slate-500">{s.label}</p>
-              </div>
-            ))}
-          </div>
+
         </section>
 
         {/* Features */}
@@ -92,7 +84,7 @@ function LandingPage() {
 
         {/* Footer */}
         <footer className="border-t border-slate-800/50 py-8 text-center text-sm text-slate-600">
-          © 2026 SafeGuard — Smart Industrial Safety Helmet Platform
+          © 2026 HELMSECURE — Smart Industrial Safety Helmet Platform
         </footer>
       </div>
     </div>

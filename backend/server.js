@@ -7,7 +7,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
 const User = require('./models/User');
 const Reading = require('./models/Reading');
 const Threshold = require('./models/Threshold');
@@ -63,9 +62,19 @@ function evaluateRules(data) {
   if (data.temp > THRESHOLDS.temperature) alerts.push('HIGH_TEMPERATURE');
   if (data.mq2 > THRESHOLDS.mq2) alerts.push('GAS_LEAK');
   if (data.mq135 > THRESHOLDS.mq135) alerts.push('POOR_AIR_QUALITY');
-  const avgFsr = (data.fsr1 + data.fsr2 + data.fsr3) / 3;
-  if (avgFsr < THRESHOLDS.fsrMin || data.helmet === false) {
+  
+  const fsr1 = Number(data.fsr1 ?? 0);
+  const fsr2 = Number(data.fsr2 ?? 0);
+  const fsr3 = Number(data.fsr3 ?? 0);
+  const avgFsr = (fsr1 + fsr2 + fsr3) / 3;
+  
+  const isOff = data.helmet === false && fsr1 < 50 && fsr2 < 50 && fsr3 < 50;
+  const isLoose = !isOff && (data.helmet === false || fsr1 < THRESHOLDS.fsrMin || fsr2 < THRESHOLDS.fsrMin || fsr3 < THRESHOLDS.fsrMin);
+
+  if (isOff) {
     alerts.push('HELMET_NOT_WORN');
+  } else if (isLoose) {
+    alerts.push('HELMET_NOT_WORN_PROPERLY');
   }
   return alerts;
 }
@@ -124,6 +133,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+
 // ============================================================
 // Location tracking (from mobile phone)
 // ============================================================
@@ -135,20 +145,72 @@ app.post('/api/location', (req, res) => {
   if (!helmetId || lat == null || lng == null) {
     return res.status(400).json({ error: 'helmetId, lat, lng required' });
   }
-  latestLocation.set(helmetId, { lat, lng, updatedAt: Date.now() });
-  res.sendStatus(200);
+  const payload = { helmetId, lat, lng, updatedAt: Date.now(), locationStale: false };
+  latestLocation.set(helmetId, payload);
+  io.emit('location-update', payload);
+  res.status(200).json(payload);
+});
+
+app.get('/api/location/latest', authMiddleware, (req, res) => {
+  try {
+    const items = Array.from(latestLocation.entries()).map(([helmetId, value]) => ({
+      helmetId,
+      lat: value.lat,
+      lng: value.lng,
+      updatedAt: value.updatedAt,
+      locationStale: Date.now() - value.updatedAt > LOCATION_STALE_MS
+    }));
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch latest locations.' });
+  }
 });
 
 // ============================================================
 // MQTT setup
 // ============================================================
-const mqttClient = mqtt.connect(process.env.MQTT_BROKER_URL);
+const mqttClient = mqtt.connect(process.env.MQTT_BROKER_URL || 'mqtt://broker.hivemq.com:1883');
 const lastSeen = new Map();
 const latestData = new Map();
 
+function normalizePayload(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+
+  const normalized = {
+    helmetId: payload.helmetId || payload.helmet_id || payload.id || payload.helmetID || payload.helmetid || 'H001',
+    helmet: payload.helmet ?? payload.helmetWorn ?? true,
+    fsr1: Number(payload.fsr1 ?? 0),
+    fsr2: Number(payload.fsr2 ?? 0),
+    fsr3: Number(payload.fsr3 ?? 0),
+    mq2: Number(payload.mq2 ?? 0),
+    mq135: Number(payload.mq135 ?? 0),
+    temp: Number(payload.temp ?? 0),
+    humidity: Number(payload.humidity ?? 0),
+    emergency: !!(payload.emergency || false),
+    lat: payload.lat ?? payload.latitude,
+    lng: payload.lng ?? payload.longitude,
+  };
+
+  if (payload.temperature != null && normalized.temp === 0) {
+    normalized.temp = Number(payload.temperature);
+  }
+  if (payload.hum != null && normalized.humidity === 0) {
+    normalized.humidity = Number(payload.hum);
+  }
+  if (payload.gas != null && normalized.mq2 === 0) {
+    normalized.mq2 = Number(payload.gas);
+  }
+  if (payload.airQuality != null && normalized.mq135 === 0) {
+    normalized.mq135 = Number(payload.airQuality);
+  }
+
+  return normalized;
+}
+
 mqttClient.on('connect', () => {
-  console.log('MQTT connected');
+  console.log('MQTT connected to HiveMQ');
   mqttClient.subscribe(process.env.MQTT_TOPIC || 'helmet/data');
+  mqttClient.subscribe(process.env.MQTT_LOCATION_TOPIC || 'helmet/location');
 });
 
 mqttClient.on('error', (err) => {
@@ -157,10 +219,46 @@ mqttClient.on('error', (err) => {
 
 mqttClient.on('message', async (topic, message) => {
   try {
-    const payload = JSON.parse(message.toString());
-    const helmetId = payload.helmet_id || 'H001';
-    lastSeen.set(helmetId, Date.now());
+    const raw = message.toString();
+    console.log(`[MQTT Message] Topic: ${topic}, Payload: ${raw}`);
+    let parsed = {};
 
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      console.error('Invalid MQTT JSON:', raw);
+      return;
+    }
+
+    // Filter out unrelated public MQTT payloads on 'helmet/data' that don't match our sensor structure
+    if (topic === 'helmet/data') {
+      const hasTemp = parsed.temp !== undefined || parsed.temperature !== undefined;
+      const hasFsr = parsed.fsr1 !== undefined;
+      if (!hasTemp || !hasFsr) {
+        console.log(`[MQTT Filter] Ignored unrelated public message on topic ${topic}`);
+        return;
+      }
+    }
+
+    const payload = normalizePayload(parsed);
+    const helmetId = payload.helmetId || 'H001';
+
+    if (topic === (process.env.MQTT_LOCATION_TOPIC || 'helmet/location')) {
+      if (payload.lat != null && payload.lng != null) {
+        const locPayload = {
+          helmetId,
+          lat: Number(payload.lat),
+          lng: Number(payload.lng),
+          updatedAt: Date.now(),
+          locationStale: false,
+        };
+        latestLocation.set(helmetId, locPayload);
+        io.emit('location-update', locPayload);
+      }
+      return;
+    }
+
+    lastSeen.set(helmetId, Date.now());
     const alerts = evaluateRules(payload);
 
     const loc = latestLocation.get(helmetId);

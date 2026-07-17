@@ -4,12 +4,17 @@ import AlertBadge from './AlertBadge';
 function HelmetCard({ data, isOnline, isSelected, onClick }) {
   const hasAlerts = data.alerts && data.alerts.length > 0;
   const isEmergency = data.alerts?.includes('EMERGENCY');
+  const isNotWorn = data.alerts?.includes('HELMET_NOT_WORN');
+  const isLoose = data.alerts?.includes('HELMET_NOT_WORN_PROPERLY');
 
   let borderColor = 'border-slate-700/50';
   let glowClass = '';
   if (isEmergency) {
     borderColor = 'border-rose-500/60';
     glowClass = 'shadow-lg shadow-rose-500/20';
+  } else if (isLoose) {
+    borderColor = 'border-indigo-500/50';
+    glowClass = 'shadow-lg shadow-indigo-500/10';
   } else if (hasAlerts) {
     borderColor = 'border-amber-500/50';
     glowClass = 'shadow-lg shadow-amber-500/10';
@@ -24,6 +29,16 @@ function HelmetCard({ data, isOnline, isSelected, onClick }) {
 
   const avgFsr = data.fsr1 != null ? Math.round((data.fsr1 + data.fsr2 + data.fsr3) / 3) : null;
 
+  let statusText = 'Helmet Worn';
+  let statusColor = 'bg-emerald-500/15 text-emerald-400';
+  if (isNotWorn) {
+    statusText = 'Helmet Off';
+    statusColor = 'bg-rose-500/15 text-rose-400';
+  } else if (isLoose) {
+    statusText = 'Helmet Loose';
+    statusColor = 'bg-indigo-500/15 text-indigo-400';
+  }
+
   return (
     <div
       onClick={onClick}
@@ -32,12 +47,12 @@ function HelmetCard({ data, isOnline, isSelected, onClick }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${data.helmetWorn ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
+          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${statusColor}`}>
             <FiShield size={18} />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white">{data.helmetId}</h3>
-            <p className="text-xs text-slate-500">{data.helmetWorn ? 'Helmet Worn' : 'Helmet Off'}</p>
+            <p className="text-xs text-slate-500">{statusText}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5">

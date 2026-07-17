@@ -44,7 +44,7 @@ function Login() {
             <FiShield size={24} />
           </div>
           <h1 className="text-2xl font-bold text-white">Welcome back</h1>
-          <p className="mt-1 text-sm text-slate-400">Sign in to your SafeGuard dashboard</p>
+          <p className="mt-1 text-sm text-slate-400">Sign in to your HELMSECURE dashboard</p>
         </div>
 
         <div className="rounded-2xl border border-slate-800/60 bg-slate-900/60 p-8 backdrop-blur-sm">

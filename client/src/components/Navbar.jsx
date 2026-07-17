@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiShield, FiGrid, FiClock, FiAlertTriangle, FiSettings, FiLogOut, FiMenu, FiX } from 'react-icons/fi';
+import { FiShield, FiGrid, FiClock, FiAlertTriangle, FiSettings, FiLogOut, FiMenu, FiX, FiMapPin } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 
 function Navbar() {
@@ -10,6 +10,7 @@ function Navbar() {
 
   const links = [
     { to: '/dashboard', label: 'Dashboard', icon: <FiGrid size={16} /> },
+    { to: '/location', label: 'Location Map', icon: <FiMapPin size={16} /> },
     { to: '/history', label: 'History', icon: <FiClock size={16} /> },
     { to: '/alerts', label: 'Alerts', icon: <FiAlertTriangle size={16} /> },
     { to: '/settings', label: 'Settings', icon: <FiSettings size={16} /> },
@@ -26,7 +27,7 @@ function Navbar() {
             <FiShield size={18} />
           </div>
           <div>
-            <h1 className="text-base font-bold tracking-tight text-white">SafeGuard</h1>
+            <h1 className="text-base font-bold tracking-tight text-white">HELMSECURE</h1>
             <p className="-mt-0.5 text-[10px] font-medium uppercase tracking-widest text-slate-500">Helmet Monitor</p>
           </div>
         </Link>

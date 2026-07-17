@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import HelmetCard from '../components/HelmetCard';
 import StatCard from '../components/StatCard';
 import AlertBadge from '../components/AlertBadge';
-import { getLatestReadings } from '../services/api';
+import { getLatestReadings, getLatestLocations } from '../services/api';
 import socket from '../services/socket';
 import { FiHardDrive, FiWifi, FiAlertTriangle, FiThermometer, FiClock, FiMapPin, FiActivity } from 'react-icons/fi';
 
@@ -15,14 +15,28 @@ function Dashboard() {
 
   // Load initial data from REST
   useEffect(() => {
-    getLatestReadings()
-      .then((res) => {
+    Promise.all([getLatestReadings(), getLatestLocations()])
+      .then(([readingsRes, locationsRes]) => {
         const map = {};
-        res.data.forEach((r) => {
+        readingsRes.data.forEach((r) => {
           map[r.helmetId] = r;
         });
+
+        locationsRes.data.forEach((loc) => {
+          map[loc.helmetId] = {
+            ...(map[loc.helmetId] || {}),
+            helmetId: loc.helmetId,
+            location: { lat: loc.lat, lng: loc.lng },
+            locationStale: loc.locationStale,
+          };
+        });
+
         setHelmets(map);
         setOnlineSet(new Set(Object.keys(map)));
+        const keys = Object.keys(map);
+        if (keys.length > 0) {
+          setSelectedId(keys[0]);
+        }
       })
       .catch(console.error);
   }, []);
@@ -32,6 +46,7 @@ function Dashboard() {
     function onUpdate(data) {
       setHelmets((prev) => ({ ...prev, [data.helmetId]: data }));
       setOnlineSet((prev) => new Set([...prev, data.helmetId]));
+      setSelectedId((prevSelected) => prevSelected || data.helmetId);
 
       if (data.alerts && data.alerts.length > 0) {
         setAlertFeed((prev) => [
@@ -49,12 +64,26 @@ function Dashboard() {
       });
     }
 
+    function onLocation(data) {
+      setHelmets((prev) => ({
+        ...prev,
+        [data.helmetId]: {
+          ...(prev[data.helmetId] || {}),
+          helmetId: data.helmetId,
+          location: { lat: data.lat, lng: data.lng },
+          locationStale: data.locationStale,
+        },
+      }));
+    }
+
     socket.on('helmet-update', onUpdate);
     socket.on('helmet-offline', onOffline);
+    socket.on('location-update', onLocation);
 
     return () => {
       socket.off('helmet-update', onUpdate);
       socket.off('helmet-offline', onOffline);
+      socket.off('location-update', onLocation);
     };
   }, []);
 
@@ -109,6 +138,43 @@ function Dashboard() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-white">Details — {selected.helmetId}</h3>
                   <button onClick={() => setSelectedId(null)} className="text-sm text-slate-500 hover:text-slate-300 transition">Close</button>
+                </div>
+                
+                {/* Wearing Status Details */}
+                <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl bg-slate-950/40 p-4 border border-slate-800/40 animate-fade-in">
+                  <div className="text-sm font-medium text-slate-400">Wearing Status:</div>
+                  {(() => {
+                    const isNotWorn = selected.alerts?.includes('HELMET_NOT_WORN');
+                    const isLoose = selected.alerts?.includes('HELMET_NOT_WORN_PROPERLY');
+                    if (isNotWorn) {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-rose-500/15 px-3 py-1 text-xs font-semibold text-rose-400 border border-rose-500/30">Helmet Off</span>
+                          <span className="text-xs text-slate-500">The helmet is completely off. All FSR sensors register no pressure.</span>
+                        </div>
+                      );
+                    } else if (isLoose) {
+                      const looseStraps = [];
+                      if ((selected.fsr1 || 0) < 300) looseStraps.push('FSR1');
+                      if ((selected.fsr2 || 0) < 300) looseStraps.push('FSR2');
+                      if ((selected.fsr3 || 0) < 300) looseStraps.push('FSR3');
+                      return (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-semibold text-indigo-400 border border-indigo-500/30">Helmet Loose</span>
+                          <span className="text-xs text-slate-400">
+                            Check fits on: <span className="font-semibold text-indigo-300">{looseStraps.join(', ') || 'All Straps'}</span> (pressure below 300).
+                          </span>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/30">Worn Properly</span>
+                          <span className="text-xs text-slate-500">Helmet is securely fastened and all straps have safe pressure.</span>
+                        </div>
+                      );
+                    }
+                  })()}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="rounded-xl bg-slate-950/60 p-4">

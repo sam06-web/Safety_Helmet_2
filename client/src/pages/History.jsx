@@ -62,6 +62,9 @@ function History() {
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">Humidity %</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">MQ2</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">MQ135</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">FSR1</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">FSR2</th>
+                  <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">FSR3</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">Helmet</th>
                   <th className="whitespace-nowrap px-4 py-3 font-medium text-slate-400">Alerts</th>
                 </tr>
@@ -69,11 +72,11 @@ function History() {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-slate-500">Loading history...</td>
+                    <td colSpan={10} className="px-4 py-12 text-center text-slate-500">Loading history...</td>
                   </tr>
                 ) : readings.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                    <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
                       <FiClock className="mx-auto mb-2 text-slate-700" size={28} />
                       <p>No history data available.</p>
                     </td>
@@ -94,6 +97,9 @@ function History() {
                       <td className={`px-4 py-3 font-medium ${(r.mq135 || 0) > 400 ? 'text-amber-400' : 'text-white'}`}>
                         {r.mq135 ?? '--'}
                       </td>
+                      <td className="px-4 py-3 text-white">{r.fsr1 ?? '--'}</td>
+                      <td className="px-4 py-3 text-white">{r.fsr2 ?? '--'}</td>
+                      <td className="px-4 py-3 text-white">{r.fsr3 ?? '--'}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${r.helmetWorn ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}`}>
                           {r.helmetWorn ? 'Worn' : 'Off'}

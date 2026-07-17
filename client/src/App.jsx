@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import History from './pages/History';
 import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
+import LocationMap from './pages/LocationMap';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 
@@ -24,6 +25,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" replace /> : <Signup />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/location" element={<ProtectedRoute><LocationMap /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
