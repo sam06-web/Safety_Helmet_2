@@ -13,26 +13,33 @@ function Dashboard() {
   const [selectedId, setSelectedId] = useState(null);
   const [alertFeed, setAlertFeed] = useState([]);
 
-  // Load initial data from REST
+  // Load initial helmet IDs from REST (no stale sensor values)
   useEffect(() => {
     Promise.all([getLatestReadings(), getLatestLocations()])
       .then(([readingsRes, locationsRes]) => {
-        const map = {};
-        readingsRes.data.forEach((r) => {
-          map[r.helmetId] = r;
-        });
+        const ids = new Set();
+        readingsRes.data.forEach((r) => ids.add(r.helmetId));
+        locationsRes.data.forEach((loc) => ids.add(loc.helmetId));
 
-        locationsRes.data.forEach((loc) => {
-          map[loc.helmetId] = {
-            ...(map[loc.helmetId] || {}),
-            helmetId: loc.helmetId,
-            location: { lat: loc.lat, lng: loc.lng },
-            locationStale: loc.locationStale,
+        const map = {};
+        ids.forEach((id) => {
+          const loc = locationsRes.data.find((l) => l.helmetId === id);
+          map[id] = {
+            helmetId: id,
+            temperature: null,
+            humidity: null,
+            mq2: null,
+            mq135: null,
+            fsr1: null,
+            fsr2: null,
+            fsr3: null,
+            alerts: ['HELMET_NOT_WORN'],
+            emergency: false,
+            ...(loc ? { location: { lat: loc.lat, lng: loc.lng }, locationStale: loc.locationStale } : {}),
           };
         });
 
         setHelmets(map);
-        setOnlineSet(new Set(Object.keys(map)));
         const keys = Object.keys(map);
         if (keys.length > 0) {
           setSelectedId(keys[0]);
@@ -62,6 +69,24 @@ function Dashboard() {
         next.delete(data.helmetId);
         return next;
       });
+      setHelmets((prev) => {
+        if (!prev[data.helmetId]) return prev;
+        const cleared = { ...prev };
+        cleared[data.helmetId] = {
+          ...cleared[data.helmetId],
+          temperature: null,
+          humidity: null,
+          mq2: null,
+          mq135: null,
+          fsr1: null,
+          fsr2: null,
+          fsr3: null,
+          alerts: ['HELMET_NOT_WORN'],
+          emergency: false,
+          location: undefined,
+        };
+        return cleared;
+      });
     }
 
     function onLocation(data) {
@@ -90,8 +115,9 @@ function Dashboard() {
   const helmetList = Object.values(helmets);
   const onlineCount = onlineSet.size;
   const alertCount = helmetList.filter((h) => h.alerts?.length > 0).length;
-  const avgTemp = helmetList.length
-    ? (helmetList.reduce((sum, h) => sum + (h.temperature || 0), 0) / helmetList.length).toFixed(1)
+  const temps = helmetList.map((h) => h.temperature).filter((t) => t != null);
+  const avgTemp = temps.length
+    ? (temps.reduce((sum, t) => sum + t, 0) / temps.length).toFixed(1)
     : '--';
 
   const selected = selectedId ? helmets[selectedId] : null;

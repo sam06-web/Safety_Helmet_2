@@ -1,5 +1,22 @@
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import { useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+
+function FitBounds({ points }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (points.length === 0) return;
+    if (points.length === 1) {
+      map.setView([points[0].location.lat, points[0].location.lng], 15);
+      return;
+    }
+    const bounds = points.map((p) => [p.location.lat, p.location.lng]);
+    map.fitBounds(bounds, { padding: [50, 50] });
+  }, [map, points]);
+
+  return null;
+}
 
 function HelmetMap({ helmets }) {
   const points = Object.values(helmets).filter((h) => h?.location);
@@ -15,6 +32,7 @@ function HelmetMap({ helmets }) {
           attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <FitBounds points={points} />
         {points.map((helmet) => (
           <CircleMarker
             key={helmet.helmetId}
